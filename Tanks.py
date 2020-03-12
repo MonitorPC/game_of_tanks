@@ -1,7 +1,7 @@
 import sys
 
 import pygame
-from pygame.math import Vector2
+from pygame.math import Vector2 as vec
 import os
 
 WIDTH = 1536
@@ -14,6 +14,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
+MAX_SPEED = 5
 
 START_CORDS = (300, 300)
 MOVING = False
@@ -40,7 +41,6 @@ def load_image(name, colorkey=None):
 
 
 def rotate(img, angle):
-
     return pygame.transform.rotate(img, angle)
 
 
@@ -49,48 +49,63 @@ class Tank(pygame.sprite.Sprite):
     center = (0, 0)
     top_left = (0, 0)
     top_right = (0, 0)
+    ang = 0
 
     def __init__(self, group):
         super().__init__(group)
         self.image = Tank.image
-        self.rect = self.image.get_rect()
-        self.pos = Vector2(300, 300)
-        self.rect.center = self.pos
-        self.speedx = 0
-        self.speedy = 0
-        self.update(None)
-        self.angel = 0
+        self.position = vec(300, 300)
+        self.rect = self.image.get_rect(center=self.position)
+        self.vel = vec(0, 0)
+        self.acceleration = vec(0, -0.1)
+        self.angle_speed = 0
+        self.angle = 0
+        self.update()
 
     def update(self, *args):
         global MOVING, Y, X
         Tank.center = self.rect.center
         Tank.top_left = self.rect.topleft
         Tank.top_right = self.rect.topright
-        if args and args[0] is not None:
+        keys = pygame.key.get_pressed()
 
-            if args[0].key == pygame.K_w:
-                MOVING = True
-                self.speedy = -3
-            if args[0].key == pygame.K_SPACE:
-                MOVING = False
-            if args[0].key == pygame.K_s:
-                MOVING = True
-                self.speedy = 3
+        if keys[pygame.K_d]:
+            self.angle_speed = 1
+            self.rotate()
+        if keys[pygame.K_a]:
+            self.angle_speed = -1
+            self.rotate()
 
-            if args[0].key == pygame.K_d:
-                self.angel -= 30
-                self.image = rotate(Tank.image, self.angel)
-                self.rect = self.image.get_rect()
-            if args[0].key == pygame.K_a:
-                self.angel += 30
-                self.image = rotate(Tank.image, self.angel)
-                self.rect = self.image.get_rect()
+        if keys[pygame.K_SPACE]:
+            MOVING = False
+            self.vel = vec(0, 0)
 
-            self.rect.center = Tank.center
+        if keys[pygame.K_w]:
+            MOVING = True
+            self.vel += self.acceleration
+
+        if keys[pygame.K_s]:
+            MOVING = True
+            self.vel -= self.acceleration
+
+        if self.vel.length() > MAX_SPEED:
+            self.vel.scale_to_length(MAX_SPEED)
 
         if MOVING:
-            self.rect.left += self.speedx
-            self.rect.top += self.speedy
+            self.position += self.vel
+            self.rect.center = self.position
+
+    def rotate(self):
+        # Rotate the acceleration vector.
+        self.acceleration.rotate_ip(self.angle_speed)
+        self.angle += self.angle_speed
+        if self.angle > 360:
+            self.angle -= 360
+        elif self.angle < 0:
+            self.angle += 360
+            Tank.ang = -self.angle
+        self.image = pygame.transform.rotate(Tank.image, -self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 
 class Bashny(pygame.sprite.Sprite):
@@ -103,37 +118,59 @@ class Bashny(pygame.sprite.Sprite):
         self.rect.center = Tank.center
         self.angel = 0
         self.rotating = False
+        self.angle_speed = 0
+        self.angle = 0
         self.update()
 
     def update(self, *args):
         self.rect.center = Tank.center
-        if args and args[0] is not None:
-            if args[0].key == pygame.K_RIGHT:
-                self.angel -= 30
-                self.image = rotate(Bashny.image, self.angel)
-                self.rect = self.image.get_rect()
-                self.rotating = True
-            if args[0].key == pygame.K_LEFT:
-                self.angel += 30
-                self.image = rotate(Bashny.image, self.angel)
-                self.rect = self.image.get_rect()
-                self.rotating = True
-        if self.rotating:
-            self.rect.center = (Tank.center[0], Tank.center[1])
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_RIGHT]:
+            self.angle_speed = 3
+            self.rotate()
+        if keys[pygame.K_LEFT]:
+            self.angle_speed = -3
+            self.rotate()
+
+    def rotate(self):
+        # Rotate the acceleration vector.
+        self.angle += self.angle_speed
+        if self.angle > 360:
+            self.angle -= 360
+        elif self.angle < 0:
+            self.angle += 360
+        self.image = pygame.transform.rotate(Bashny.image, -self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
         # (Tank.center[0], Tank.center[1] + 44)
 
 
 class Gusli(pygame.sprite.Sprite):
-    left_cord = (0, 0)
-    right_cord = (0, 0)
     images = [load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
-              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1)]
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_A.png'], -1),
+
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              load_image(['Tank_1', 'tracks', 'Track_1_B.png'], -1),
+              ]
 
     def __init__(self, group, left_or_right):
         super().__init__(group)
         self.side = left_or_right
         self.cur_frame = 0
+
+        self.angle_speed = 0
+        self.angle = 0
 
         self.image = Gusli.images[self.cur_frame]
 
@@ -142,14 +179,18 @@ class Gusli(pygame.sprite.Sprite):
 
     def update(self):
         if self.side:
-            self.rect.x, self.rect.y = Tank.top_right[0] - 32, Tank.top_right[1] - 5
-            Gusli.right_cord = (self.rect.x, self.rect.y)
+            self.rect.center = Tank.center[0] - 75, Tank.center[1] - 43
         else:
-            self.rect.x, self.rect.y = Tank.top_left[0] - 10, Tank.top_left[1] - 5
-            Gusli.left_cord = (self.rect.x, self.rect.y)
-        if MOVING and clock.tick(30):
+            self.rect.center = Tank.center[0] + 75, Tank.center[1] - 43
+        if MOVING:
             self.cur_frame = (self.cur_frame + 1) % len(Gusli.images)
             self.image = Gusli.images[self.cur_frame]
+
+    def rotate(self):
+        # Rotate the acceleration vector.
+        self.angle = Tank.ang
+        self.image = pygame.transform.rotate(self.image, -self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 
 class Tires(pygame.sprite.Sprite):
@@ -180,9 +221,8 @@ b = Bashny(all_sprites)
 
 gus = pygame.sprite.Group()
 
-
-# g_l = Gusli(gus, False)
-# g_r = Gusli(gus, True)
+g_l = Gusli(gus, False)
+g_r = Gusli(gus, True)
 
 
 def terminate():
@@ -197,7 +237,9 @@ def main():
             if event.type == pygame.QUIT:
                 terminate()
             if event.type == pygame.KEYDOWN:
-                all_sprites.update(event)
+                all_sprites.update()
+            if event.type == pygame.KEYUP:
+                Tank.update(event)
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 print(pygame.mouse.get_pos())
